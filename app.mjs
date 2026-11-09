@@ -1,3 +1,4 @@
+import {ACCOUNTS} from './config.mjs';
 import {parseMetrics,parseLog,parseFunnel,aggregateFunnel,registrationRate,aggregate,periodStart,SHEET_URL} from './model.mjs';
 const $=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const int=v=>v==null?'N/D':new Intl.NumberFormat('es-MX').format(v);
@@ -6,7 +7,8 @@ const pct=v=>v==null?'N/D':v.toFixed(2)+'%';
 const date=v=>new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(v+'T12:00:00Z'));
 const timestamp=v=>new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'America/Mexico_City'}).format(new Date(v));
 let metrics=[],logs=[],funnelRows=[],segment='Todos',loaded=false,logLoaded=false,funnelLoaded=false,busy=false,lastChecked=null,logError='',funnelError='';
-$('sheet-link').href=SHEET_URL+'#gid=1014401736';$('source-sheet').href=SHEET_URL;
+for(const link of document.querySelectorAll('a[href*="TU_SPREADSHEET_ID"]')){if(SHEET_URL)link.href=link.href.replace('https://docs.google.com/spreadsheets/d/TU_SPREADSHEET_ID/edit',SHEET_URL);else link.hidden=true;}
+for(const id of ['sheet-link','source-sheet']){if(SHEET_URL)$(id).href=SHEET_URL;else $(id).hidden=true;}
 const selected=()=>metrics.filter(r=>(segment==='Todos'||segment===r.segment)&&r.date>=$('from').value&&r.date<=$('to').value);
 const card=(label,value,note)=>`<article><p>${esc(label)}</p><strong>${esc(value)}</strong><small>${esc(note)}</small></article>`;
 function render(){
@@ -26,7 +28,7 @@ function render(){
  $('flows').innerHTML=['B2B','B2C'].filter(s=>segment==='Todos'||segment===s).map(s=>{
   const group=rows.filter(r=>r.segment===s),a=aggregate(group),exists=group.length>0;
   const stages=[['Inversión',exists?money(a.spend):'N/D','USD'],['Impresiones',exists?int(a.impressions):'N/D','Meta Ads'],['Clics de enlace',exists?int(a.clicks):'N/D','Meta Ads'],['CTR',pct(a.ctr),'Clics / impresiones'],['CPC',money(a.cpc),'Inversión / clics'],['CPM',money(a.cpm),'Costo por 1,000 impresiones'],s==='B2B'?['Leads de Meta',int(a.leads),'Eventos atribuidos']:['Instalaciones de Meta',int(a.installs),'Eventos atribuidos'],s==='B2B'?['Empresas activadas','N/D','CRM pendiente']:['Primer depósito','N/D','App pendiente']];
-  return `<article class="flow"><div class="flow-header"><div><h3>${s==='B2B'?'Empresas · B2B':'Personas · B2C'}</h3><p>Cuenta Meta: ${s==='B2B'?'TU_CUENTA_B2B':'TU_CUENTA_B2C'}</p></div><span class="route-label">${s==='B2B'?'Adquisición empresarial':'Adquisición de usuarios'}</span></div><div class="stages">${stages.map(([l,v,n])=>`<div class="stage"><h4>${l}</h4><strong>${esc(v)}</strong><small>${n}</small></div>`).join('')}</div><p class="flow-foot">${s==='B2B'?'Los leads no equivalen a empresas activadas.':'Las instalaciones no equivalen a usuarios con cuenta, KYC o depósito.'}</p></article>`;
+  return `<article class="flow"><div class="flow-header"><div><h3>${s==='B2B'?'Empresas · B2B':'Personas · B2C'}</h3><p>Cuenta Meta: ${esc(ACCOUNTS[s])}</p></div><span class="route-label">${s==='B2B'?'Adquisición empresarial':'Adquisición de usuarios'}</span></div><div class="stages">${stages.map(([l,v,n])=>`<div class="stage"><h4>${l}</h4><strong>${esc(v)}</strong><small>${n}</small></div>`).join('')}</div><p class="flow-foot">${s==='B2B'?'Los leads no equivalen a empresas activadas.':'Las instalaciones no equivalen a usuarios con cuenta, KYC o depósito.'}</p></article>`;
  }).join('');
  const previous=$('campaign').value,campaigns=[...new Map(rows.map(r=>[r.account+'|'+r.campaignId,r.campaign])).entries()];
  $('campaign').innerHTML='<option value="">Todas</option>'+campaigns.map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('');
@@ -75,13 +77,13 @@ function renderTrend(rows){
 }
 function setPeriod(){if($('period').value!=='custom'&&$('to').value)$('from').value=periodStart($('to').value,$('period').value);render();}
 function navigate(view){if(!['resumen','operacion','bitacora','fuentes'].includes(view))view='resumen';document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));$('title').textContent=({resumen:'KPIs relevantes',operacion:'Campañas',bitacora:'Bitácora de cambios',fuentes:'Fuentes y medición'})[view];history.replaceState(null,'','#'+view);}
-function connect(error,href){if(error.status==='reauthentication_required'&&href?.startsWith('/signin-with-chatgpt?')){$('connect').href=href;$('connect').hidden=false;}}
+function connect(error){if(error.status==='authentication_required'){$('connect').href='/';$('connect').textContent='Volver a iniciar sesión';$('connect').hidden=false;}}
 async function refresh(){
  if(busy)return;busy=true;$('refresh-data').disabled=true;$('refresh-data').textContent='Actualizando…';$('refresh-data').setAttribute('aria-busy','true');$('refresh-status').textContent='Consultando Google Sheets…';$('connect').hidden=true;
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),90000);
  try{
   const response=await fetch('/api/sheets',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',credentials:'same-origin',cache:'no-store',signal:controller.signal});
-  const data=await response.json();
+  const data=response.headers.get('Content-Type')?.includes('application/json')?await response.json():{status:'authentication_required',message:'La sesión terminó. Abre Acceder para volver a entrar.'};
   if(data.status!=='success'){connect(data,data.chatGPTSignInPath);const failed=data.sources?.meta;if(failed)connect(failed,data.chatGPTSignInPath);throw new Error(failed?.message||data.message||'No se pudo leer la hoja de marketing.');}
   const meta=data.sources?.meta;if(meta?.status!=='success')throw new Error('La hoja de marketing no confirmó una lectura válida.');
   const next=parseMetrics(meta.result?.structuredContent?.values),wasLoaded=loaded;metrics=next;loaded=true;lastChecked=data.checkedAt;
