@@ -10,3 +10,7 @@ source-data/
 *credentials*.json
 *service-account*.json
 .DS_Store
+
+.dev.vars
+.dev.vars.*
+.wrangler/
