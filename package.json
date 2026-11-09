@@ -1,15 +1,14 @@
 {
   "name": "mi-plata-dashboard",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Dashboard de marketing B2B y B2C de Mi Plata",
   "scripts": {
-    "start": "node preview.mjs",
-    "build": "node build.mjs",
-    "check": "node --check app.mjs && node --check model.mjs && node --check sites-worker.mjs"
+    "build": "node build-cloudflare.mjs",
+    "deploy": "npm run build && wrangler deploy",
+    "test": "node --test cloudflare-worker.test.mjs"
   },
-  "engines": {
-    "node": ">=22"
-  }
+  "dependencies": {"jose": "^6.1.0"},
+  "devDependencies": {"wrangler": "^4.0.0"},
+  "engines": {"node": ">=22"}
 }
