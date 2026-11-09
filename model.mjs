@@ -1,6 +1,7 @@
-export const SHEET_ID='TU_SPREADSHEET_ID';
-export const SHEET_URL=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
-const accounts={B2B:'TU_CUENTA_B2B',B2C:'TU_CUENTA_B2C'};
+import {SHEET_ID,ACCOUNTS} from './config.mjs';
+export {SHEET_ID};
+export const SHEET_URL=SHEET_ID?'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit':'';
+const accounts=ACCOUNTS;
 export function isoDate(value){
  if(typeof value==='number')return new Date(Date.UTC(1899,11,30)+value*86400000).toISOString().slice(0,10);
  const s=String(value??'').slice(0,10);
